@@ -28,17 +28,59 @@ class ViewController: UIViewController {
         self.sceneView.delegate = self
         registerGestureRecognizers()
         
+        self.sceneView.autoenablesDefaultLighting = true
+        
     }
 
     func registerGestureRecognizers() {
         let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(tapped(sender:)))
         let pinchGestureRecognizer = UIPinchGestureRecognizer(target: self, action: #selector(pinch(sender:)))
+        let longPressGestureRecognizer = UILongPressGestureRecognizer(target: self, action: #selector(rotate(sender:)))
+        longPressGestureRecognizer.minimumPressDuration = 0.1
+        
         self.sceneView.addGestureRecognizer(tapGestureRecognizer)
         self.sceneView.addGestureRecognizer(pinchGestureRecognizer)
+        self.sceneView.addGestureRecognizer(longPressGestureRecognizer)
     }
     
-    @objc
-    func pinch(sender: UIPinchGestureRecognizer) {
+    /// Rotate object in scene
+    ///
+    /// - Parameter sender: UILongPressGestureRecognizer
+    @objc func rotate(sender: UILongPressGestureRecognizer) {
+        
+        let sceneView = sender.view as! ARSCNView
+        let holdLocation = sender.location(in: sceneView)
+        let hitTest = sceneView.hitTest(holdLocation)
+        
+        if !hitTest.isEmpty {
+            
+            let results = hitTest.first
+            
+            if sender.state == .began {
+                
+                let rotate = SCNAction.rotateBy(x: 0, y: CGFloat(360.degreesToRadians), z: 0, duration: 1)
+                let forever = SCNAction.repeatForever(rotate)
+                results?.node.runAction(forever)
+                
+                
+                print("Holding")
+            } else if sender.state == .ended {
+                
+                results?.node.removeAllActions()
+                
+                print("release finger")
+            }
+            
+            
+            
+        }
+        
+    }
+   
+    /// Scale object on scene
+    ///
+    /// - Parameter sender: UIPinchGestureRecognizer
+    @objc func pinch(sender: UIPinchGestureRecognizer) {
         
         let sceneView = sender.view as! ARSCNView
         let pinchLocation = sender.location(in: sceneView)
@@ -78,9 +120,22 @@ class ViewController: UIViewController {
             let transform = hitTestResult.worldTransform
             let thirdColumn = transform.columns.3
             node.position = SCNVector3(thirdColumn.x, thirdColumn.y, thirdColumn.z)
+            if selectedItem == "table" {
+                self.centerPivot(for: node)
+            }
             self.sceneView.scene.rootNode.addChildNode(node)
         }
         
+    }
+    
+    //Fix for centering table object
+    func centerPivot(for node: SCNNode) {
+        let min = node.boundingBox.min
+        let max = node.boundingBox.max
+        node.pivot = SCNMatrix4MakeTranslation(
+            min.x + (max.x - min.x) / 2,
+            min.y + (max.y - min.y) / 2,
+            min.z + (max.z - min.z) / 2)
     }
 
 }
@@ -132,7 +187,11 @@ extension ViewController: ARSCNViewDelegate {
     
 }
 
-
+extension Int {
+    var degreesToRadians: Double {
+        return Double(self) * .pi / 180
+    }
+}
 
 
 
